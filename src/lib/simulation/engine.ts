@@ -997,15 +997,19 @@ export class SimulationEngine {
     this.nodes = nodes;
     this.edges = edges;
     const next = new Map<string, ComponentState>();
+    const nextTotals = new Map<string, number>();
     for (const n of nodes) {
       const prev = this.states.get(n.id);
       if (prev && prev.type === n.data.type) {
         next.set(n.id, prev);
+        const total = this.componentRequestTotals.get(n.id);
+        if (total !== undefined) nextTotals.set(n.id, total);
       } else {
         next.set(n.id, createState(n.data.type));
       }
     }
     this.states = next;
+    this.componentRequestTotals = nextTotals;
   }
 
   setConfig(cfg: Partial<SimulationConfig>) {

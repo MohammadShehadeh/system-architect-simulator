@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useSyncExternalStore } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 
 type Theme = "light" | "dark";
 
@@ -38,13 +38,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     getSnapshot,
     getServerSnapshot
   );
-  const [, setTick] = useState(0);
 
   const setTheme = (t: Theme) => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(STORAGE_KEY, t);
     document.documentElement.classList.toggle("dark", t === "dark");
-    setTick((n) => n + 1);
   };
 
   return (
