@@ -137,15 +137,7 @@ function CanvasInner() {
             const arch = node as ArchNode;
             const type = arch.data?.type;
             if (!type) return "var(--muted)";
-            return {
-              client: "#64748b",
-              cdn: "#0ea5e9",
-              "load-balancer": "#8b5cf6",
-              "api-server": "#3b82f6",
-              redis: "#f43f5e",
-              postgres: "#10b981",
-              queue: "#f59e0b",
-            }[type];
+            return COMPONENT_COLORS[type]?.dot ?? "var(--muted)";
           }}
           nodeStrokeWidth={2}
           className="!bg-card !border !shadow-sm rounded-md overflow-hidden"

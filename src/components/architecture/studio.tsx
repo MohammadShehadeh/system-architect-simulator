@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
-import { Workflow } from "lucide-react";
+import { useEffect, useState } from "react";
+import { LayoutTemplate, Workflow } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { useArchitectureStore } from "@/lib/store/architecture-store";
 import { useSimulation } from "@/lib/simulation/use-simulation";
 
 import { ArchitectureCanvas } from "./architecture-canvas";
 import { ComponentPalette } from "./component-palette";
+import { InsightsPanel } from "./insights-panel";
 import { MetricsPanel } from "./metrics-panel";
 import { PropertyPanel } from "./property-panel";
+import { TemplatesDialog } from "./templates-dialog";
 import { Toolbar } from "./toolbar";
 import { ValidationPanel } from "./validation-panel";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -17,14 +20,15 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export function Studio() {
   useSimulation();
-  const loadPreset = useArchitectureStore((s) => s.loadPreset);
+  const loadTemplateById = useArchitectureStore((s) => s.loadTemplateById);
   const nodeCount = useArchitectureStore((s) => s.nodes.length);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   useEffect(() => {
     if (nodeCount === 0) {
-      loadPreset("with-cache");
+      loadTemplateById("starter-cached");
     }
-  }, [loadPreset, nodeCount]);
+  }, [loadTemplateById, nodeCount]);
 
   return (
     <div className="flex h-svh flex-col bg-background text-foreground">
@@ -38,26 +42,26 @@ export function Studio() {
               System Architect Simulator
             </span>
             <span className="text-[10px] text-muted-foreground">
-              Design, simulate, iterate
+              Design enterprise systems · simulate production load · find bottlenecks
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href="https://reactflow.dev"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-muted-foreground hover:text-foreground"
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5"
+            onClick={() => setTemplatesOpen(true)}
           >
-            React Flow
-          </a>
+            <LayoutTemplate className="size-3.5" /> Templates
+          </Button>
           <ThemeToggle />
         </div>
       </header>
 
       <Toolbar />
 
-      <div className="grid min-h-0 flex-1 grid-cols-[240px_1fr_320px]">
+      <div className="grid min-h-0 flex-1 grid-cols-[240px_1fr_360px]">
         <aside className="flex min-h-0 flex-col border-r bg-card">
           <Tabs defaultValue="components" className="flex h-full flex-col">
             <div className="border-b px-2 pt-2">
@@ -66,7 +70,7 @@ export function Studio() {
                   Components
                 </TabsTrigger>
                 <TabsTrigger value="status" className="flex-1">
-                  Status
+                  Validation
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -93,26 +97,43 @@ export function Studio() {
         </main>
 
         <aside className="flex min-h-0 flex-col border-l bg-card">
-          <Tabs defaultValue="properties" className="flex h-full flex-col">
+          <Tabs defaultValue="metrics" className="flex h-full flex-col">
             <div className="border-b px-2 pt-2">
               <TabsList className="w-full">
-                <TabsTrigger value="properties" className="flex-1">
-                  Properties
-                </TabsTrigger>
                 <TabsTrigger value="metrics" className="flex-1">
                   Metrics
                 </TabsTrigger>
+                <TabsTrigger value="insights" className="flex-1">
+                  Insights
+                </TabsTrigger>
+                <TabsTrigger value="properties" className="flex-1">
+                  Config
+                </TabsTrigger>
               </TabsList>
             </div>
-            <TabsContent value="properties" className="min-h-0 flex-1 overflow-hidden">
-              <PropertyPanel />
-            </TabsContent>
-            <TabsContent value="metrics" className="min-h-0 flex-1 overflow-hidden">
+            <TabsContent
+              value="metrics"
+              className="min-h-0 flex-1 overflow-hidden"
+            >
               <MetricsPanel />
+            </TabsContent>
+            <TabsContent
+              value="insights"
+              className="min-h-0 flex-1 overflow-hidden"
+            >
+              <InsightsPanel />
+            </TabsContent>
+            <TabsContent
+              value="properties"
+              className="min-h-0 flex-1 overflow-hidden"
+            >
+              <PropertyPanel />
             </TabsContent>
           </Tabs>
         </aside>
       </div>
+
+      <TemplatesDialog open={templatesOpen} onOpenChange={setTemplatesOpen} />
     </div>
   );
 }
