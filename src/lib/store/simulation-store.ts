@@ -23,11 +23,15 @@ const initialMetrics = (): SimulationMetrics => ({
   successfulRequests: 0,
   failedRequests: 0,
   avgLatencyMs: 0,
+  p50LatencyMs: 0,
+  p95LatencyMs: 0,
   p99LatencyMs: 0,
   successRate: 1,
   errorRate: 0,
   currentRps: 0,
   uptime: 0,
+  estimatedMonthlyCost: 0,
+  estimatedMaxRps: 0,
   perComponent: {},
   history: [],
 });
@@ -39,6 +43,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     trafficMultiplier: 1,
     pattern: "constant",
     durationMs: 60_000,
+    networkHopMs: 1,
   },
 
   setStatus: (status) => set({ status }),

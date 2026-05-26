@@ -12,6 +12,11 @@ import {
   type ComponentNodeData,
   type ComponentType,
 } from "@/lib/architecture/types";
+import {
+  cloneTemplate,
+  TEMPLATES_BY_ID,
+  type Template,
+} from "@/lib/architecture/templates";
 import { uid } from "@/lib/utils";
 
 export type ArchNode = Node<ComponentNodeData>;
@@ -21,10 +26,17 @@ export interface ArchitectureState {
   nodes: ArchNode[];
   edges: ArchEdge[];
   selectedNodeId: string | null;
+  /** ID of the most recently loaded template, for showing context */
+  activeTemplateId: string | null;
 
   onNodesChange: OnNodesChange<ArchNode>;
   onEdgesChange: OnEdgesChange;
-  onConnect: (params: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) => void;
+  onConnect: (params: {
+    source: string;
+    target: string;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
+  }) => void;
 
   addComponent: (type: ComponentType, position: { x: number; y: number }) => string;
   removeNode: (id: string) => void;
@@ -32,12 +44,18 @@ export interface ArchitectureState {
   updateNodeConfig: (id: string, config: Partial<ComponentConfig>) => void;
   setSelectedNode: (id: string | null) => void;
   clear: () => void;
-  loadPreset: (preset: PresetKey) => void;
+  loadTemplateById: (id: string) => void;
+  loadTemplate: (template: Template) => void;
 }
 
-const initialState = (): { nodes: ArchNode[]; edges: ArchEdge[] } => ({
+const initialState = (): {
+  nodes: ArchNode[];
+  edges: ArchEdge[];
+  activeTemplateId: string | null;
+} => ({
   nodes: [],
   edges: [],
+  activeTemplateId: null,
 });
 
 const baseStore = create<ArchitectureState>()(
@@ -121,7 +139,10 @@ const baseStore = create<ArchitectureState>()(
                   ...n,
                   data: {
                     ...n.data,
-                    config: { ...n.data.config, ...partial } as ComponentConfig,
+                    config: {
+                      ...n.data.config,
+                      ...partial,
+                    } as ComponentConfig,
                   },
                 }
               : n
@@ -132,14 +153,32 @@ const baseStore = create<ArchitectureState>()(
       setSelectedNode: (id) => set({ selectedNodeId: id }),
 
       clear: () =>
-        set({ nodes: [], edges: [], selectedNodeId: null }),
-
-      loadPreset: (preset) => {
-        const config = PRESETS[preset];
         set({
-          nodes: config.nodes,
-          edges: config.edges,
+          nodes: [],
+          edges: [],
           selectedNodeId: null,
+          activeTemplateId: null,
+        }),
+
+      loadTemplateById: (id) => {
+        const template = TEMPLATES_BY_ID[id];
+        if (!template) return;
+        const { nodes, edges } = cloneTemplate(template);
+        set({
+          nodes,
+          edges,
+          selectedNodeId: null,
+          activeTemplateId: id,
+        });
+      },
+
+      loadTemplate: (template) => {
+        const { nodes, edges } = cloneTemplate(template);
+        set({
+          nodes,
+          edges,
+          selectedNodeId: null,
+          activeTemplateId: template.id,
         });
       },
     }),
@@ -161,81 +200,3 @@ export const useArchitectureStore = baseStore;
 export const useTemporalStore = <T>(
   selector: (state: TemporalState<Pick<ArchitectureState, "nodes" | "edges">>) => T
 ): T => useStore(baseStore.temporal, selector);
-
-export type PresetKey = "blank" | "monolith" | "with-cache" | "scaled";
-
-const makeNode = (
-  type: ComponentType,
-  position: { x: number; y: number },
-  overrides?: Partial<ComponentConfig>
-): ArchNode => ({
-  id: uid(type),
-  type: "component",
-  position,
-  data: {
-    type,
-    config: { ...DEFAULT_CONFIGS[type], ...overrides } as ComponentConfig,
-  },
-});
-
-const PRESETS: Record<PresetKey, { nodes: ArchNode[]; edges: ArchEdge[] }> = {
-  blank: { nodes: [], edges: [] },
-  monolith: (() => {
-    const client = makeNode("client", { x: 0, y: 100 });
-    const api = makeNode("api-server", { x: 320, y: 100 }, { instances: 1 });
-    const db = makeNode("postgres", { x: 640, y: 100 });
-    return {
-      nodes: [client, api, db],
-      edges: [
-        { id: uid("edge"), source: client.id, target: api.id },
-        { id: uid("edge"), source: api.id, target: db.id },
-      ],
-    };
-  })(),
-  "with-cache": (() => {
-    const client = makeNode("client", { x: 0, y: 150 });
-    const lb = makeNode("load-balancer", { x: 280, y: 150 });
-    const api = makeNode("api-server", { x: 560, y: 150 }, { instances: 2 });
-    const cache = makeNode("redis", { x: 840, y: 40 });
-    const db = makeNode("postgres", { x: 840, y: 260 });
-    return {
-      nodes: [client, lb, api, cache, db],
-      edges: [
-        { id: uid("edge"), source: client.id, target: lb.id },
-        { id: uid("edge"), source: lb.id, target: api.id },
-        { id: uid("edge"), source: api.id, target: cache.id },
-        { id: uid("edge"), source: api.id, target: db.id },
-      ],
-    };
-  })(),
-  scaled: (() => {
-    const client = makeNode("client", { x: 0, y: 200 }, { rps: 1000 });
-    const cdn = makeNode("cdn", { x: 240, y: 200 });
-    const lb = makeNode("load-balancer", { x: 480, y: 200 });
-    const api = makeNode(
-      "api-server",
-      { x: 720, y: 200 },
-      { instances: 4, maxConcurrentRequests: 200 }
-    );
-    const cache = makeNode(
-      "redis",
-      { x: 960, y: 80 },
-      { hitRate: 0.9, clusterMode: true }
-    );
-    const db = makeNode(
-      "postgres",
-      { x: 960, y: 320 },
-      { maxConnections: 200, replicaCount: 2 }
-    );
-    return {
-      nodes: [client, cdn, lb, api, cache, db],
-      edges: [
-        { id: uid("edge"), source: client.id, target: cdn.id },
-        { id: uid("edge"), source: cdn.id, target: lb.id },
-        { id: uid("edge"), source: lb.id, target: api.id },
-        { id: uid("edge"), source: api.id, target: cache.id },
-        { id: uid("edge"), source: api.id, target: db.id },
-      ],
-    };
-  })(),
-};

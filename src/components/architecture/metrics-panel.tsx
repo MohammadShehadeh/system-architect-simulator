@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, AlertTriangle, CheckCircle2, Timer } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, DollarSign, Gauge, Timer } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { useSimulationStore } from "@/lib/store/simulation-store";
@@ -93,8 +93,8 @@ export function MetricsPanel() {
           tone={successTone}
         />
         <Stat
-          label="Avg latency"
-          value={formatLatency(metrics.avgLatencyMs)}
+          label="P50 latency"
+          value={formatLatency(metrics.p50LatencyMs)}
           icon={Timer}
         />
         <Stat
@@ -102,6 +102,18 @@ export function MetricsPanel() {
           value={formatLatency(metrics.p99LatencyMs)}
           icon={Timer}
           tone={latencyTone}
+        />
+        <Stat
+          label="Est. cost"
+          value={`$${formatNumber(metrics.estimatedMonthlyCost)}`}
+          hint="per month"
+          icon={DollarSign}
+        />
+        <Stat
+          label="Max RPS"
+          value={formatNumber(metrics.estimatedMaxRps)}
+          hint="sustainable"
+          icon={Gauge}
         />
       </div>
 
@@ -124,12 +136,24 @@ export function MetricsPanel() {
       </Card>
 
       <Card className="gap-2 py-3">
-        <div className="px-3 text-xs font-semibold">Avg latency (ms)</div>
+        <div className="flex items-center justify-between px-3 text-xs font-semibold">
+          <span>Latency</span>
+          <div className="flex items-center gap-3 text-[10px] font-normal text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="size-1.5 rounded-full bg-[oklch(0.7_0.2_50)]" /> avg
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="size-1.5 rounded-full bg-[oklch(0.6_0.22_25)]" /> p99
+            </span>
+          </div>
+        </div>
         <div className="px-1">
           <MetricsChart
             data={metrics.history}
             metric="avgLatency"
             color="oklch(0.7 0.2 50)"
+            overlayMetric="p99Latency"
+            overlayColor="oklch(0.6 0.22 25)"
           />
         </div>
       </Card>
@@ -149,6 +173,7 @@ export function MetricsPanel() {
                 overloaded: "bg-orange-500",
                 failed: "bg-red-500",
               }[status];
+              const saturation = m?.saturation ?? 0;
               return (
                 <button
                   key={node.id}
@@ -168,9 +193,26 @@ export function MetricsPanel() {
                     {node.data.config.label ?? COMPONENT_LABELS[node.data.type]}
                   </span>
                   {m && (
-                    <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
-                      {formatPercent(m.cpuUtilization)}
-                    </span>
+                    <>
+                      <div className="h-1 w-12 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn(
+                            "h-full transition-all",
+                            saturation > 1
+                              ? "bg-red-500"
+                              : saturation > 0.85
+                                ? "bg-orange-500"
+                                : saturation > 0.7
+                                  ? "bg-amber-500"
+                                  : "bg-emerald-500"
+                          )}
+                          style={{ width: `${Math.min(100, saturation * 100)}%` }}
+                        />
+                      </div>
+                      <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                        {formatPercent(saturation)}
+                      </span>
+                    </>
                   )}
                   <span
                     className={cn("size-2 rounded-full", statusColor)}
