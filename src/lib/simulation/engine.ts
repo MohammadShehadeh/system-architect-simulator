@@ -972,6 +972,7 @@ export class SimulationEngine {
   private latencyBuffer: number[] = [];
   /** Per-component cumulative request count, for averaged cost. */
   private componentRequestTotals: Map<string, number> = new Map();
+  private pausedElapsedMs = 0;
   private config: SimulationConfig = {
     trafficMultiplier: 1,
     pattern: "constant",
@@ -1014,6 +1015,7 @@ export class SimulationEngine {
   reset() {
     this.tickCount = 0;
     this.startedAt = Date.now();
+    this.pausedElapsedMs = 0;
     this.history = [];
     this.totalRequests = 0;
     this.successfulRequests = 0;
@@ -1023,6 +1025,17 @@ export class SimulationEngine {
     this.states = new Map(
       this.nodes.map((n) => [n.id, createState(n.data.type)])
     );
+  }
+
+  pause() {
+    this.pausedElapsedMs = Date.now() - this.startedAt;
+  }
+
+  // Shift startedAt forward so elapsed time appears continuous across the
+  // pause window — otherwise time-based traffic patterns (ramp, daily) jump
+  // ahead by however long the user stayed paused.
+  resume() {
+    this.startedAt = Date.now() - this.pausedElapsedMs;
   }
 
   private trafficFactor(elapsed: number): number {

@@ -3,10 +3,41 @@
 import { useEffect, useRef } from "react";
 import { useArchitectureStore } from "@/lib/store/architecture-store";
 import { useSimulationStore } from "@/lib/store/simulation-store";
+import type { SimulationStatus } from "@/lib/architecture/types";
+import type { ArchEdge, ArchNode } from "./engine";
 import type { MainToWorker, WorkerToMain } from "./messages";
+
+// React Flow's applyNodeChanges only mutates position/selection/dimensions —
+// never `data` — so a `data` reference change implies a real config/topology
+// edit that the simulation engine needs to see. This filter keeps us from
+// re-serialising the entire graph across the worker boundary on every drag.
+function archChanged(
+  prevNodes: ArchNode[],
+  nextNodes: ArchNode[],
+  prevEdges: ArchEdge[],
+  nextEdges: ArchEdge[]
+): boolean {
+  if (prevNodes.length !== nextNodes.length) return true;
+  if (prevEdges.length !== nextEdges.length) return true;
+
+  const prevNodeMap = new Map(prevNodes.map((n) => [n.id, n]));
+  for (const n of nextNodes) {
+    const p = prevNodeMap.get(n.id);
+    if (!p || p.data !== n.data) return true;
+  }
+
+  const prevEdgeMap = new Map(prevEdges.map((e) => [e.id, e]));
+  for (const e of nextEdges) {
+    const p = prevEdgeMap.get(e.id);
+    if (!p || p.source !== e.source || p.target !== e.target) return true;
+  }
+
+  return false;
+}
 
 export function useSimulation() {
   const workerRef = useRef<Worker | null>(null);
+  const prevStatusRef = useRef<SimulationStatus>("idle");
 
   const status = useSimulationStore((s) => s.status);
   const config = useSimulationStore((s) => s.config);
@@ -48,35 +79,48 @@ export function useSimulation() {
   useEffect(() => {
     const worker = workerRef.current;
     if (!worker) return;
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = status;
+
     if (status === "running") {
-      const { nodes, edges } = useArchitectureStore.getState();
-      const { config: currentConfig } = useSimulationStore.getState();
-      const initMsg: MainToWorker = {
-        type: "INIT",
-        nodes,
-        edges,
-        config: currentConfig,
-      };
-      const startMsg: MainToWorker = { type: "START" };
-      worker.postMessage(initMsg);
-      worker.postMessage(startMsg);
+      if (prev === "paused") {
+        const { nodes, edges } = useArchitectureStore.getState();
+        worker.postMessage({
+          type: "UPDATE_ARCHITECTURE",
+          nodes,
+          edges,
+        } satisfies MainToWorker);
+        worker.postMessage({ type: "RESUME" } satisfies MainToWorker);
+      } else {
+        const { nodes, edges } = useArchitectureStore.getState();
+        const { config: currentConfig } = useSimulationStore.getState();
+        worker.postMessage({
+          type: "INIT",
+          nodes,
+          edges,
+          config: currentConfig,
+        } satisfies MainToWorker);
+        worker.postMessage({ type: "START" } satisfies MainToWorker);
+      }
+    } else if (status === "paused") {
+      worker.postMessage({ type: "PAUSE" } satisfies MainToWorker);
     } else {
-      const stopMsg: MainToWorker = { type: "STOP" };
-      worker.postMessage(stopMsg);
+      worker.postMessage({ type: "STOP" } satisfies MainToWorker);
     }
   }, [status]);
 
   useEffect(() => {
     const worker = workerRef.current;
-    if (!worker || status !== "running") return;
+    if (!worker) return;
     return useArchitectureStore.subscribe((state, prev) => {
-      if (state.nodes === prev.nodes && state.edges === prev.edges) return;
-      const msg: MainToWorker = {
+      if (!archChanged(prev.nodes, state.nodes, prev.edges, state.edges)) {
+        return;
+      }
+      worker.postMessage({
         type: "UPDATE_ARCHITECTURE",
         nodes: state.nodes,
         edges: state.edges,
-      };
-      worker.postMessage(msg);
+      } satisfies MainToWorker);
     });
-  }, [status]);
+  }, []);
 }

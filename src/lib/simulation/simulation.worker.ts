@@ -20,6 +20,18 @@ const stopLoop = () => {
   }
 };
 
+const startLoop = () => {
+  intervalId = setInterval(() => {
+    const metrics = engine.tick();
+    if (metrics.uptime >= durationMs) {
+      stopLoop();
+      post({ type: "COMPLETED", metrics });
+    } else {
+      post({ type: "METRICS", metrics });
+    }
+  }, TICK_INTERVAL_MS);
+};
+
 self.addEventListener("message", (e: MessageEvent<MainToWorker>) => {
   const msg = e.data;
   switch (msg.type) {
@@ -43,15 +55,18 @@ self.addEventListener("message", (e: MessageEvent<MainToWorker>) => {
     case "START": {
       stopLoop();
       engine.reset();
-      intervalId = setInterval(() => {
-        const metrics = engine.tick();
-        if (metrics.uptime >= durationMs) {
-          stopLoop();
-          post({ type: "COMPLETED", metrics });
-        } else {
-          post({ type: "METRICS", metrics });
-        }
-      }, TICK_INTERVAL_MS);
+      startLoop();
+      break;
+    }
+    case "PAUSE": {
+      stopLoop();
+      engine.pause();
+      break;
+    }
+    case "RESUME": {
+      if (intervalId !== null) break;
+      engine.resume();
+      startLoop();
       break;
     }
     case "STOP": {
