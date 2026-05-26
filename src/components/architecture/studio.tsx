@@ -33,14 +33,11 @@ export function Studio() {
 
   return (
     <div className="flex h-svh flex-col bg-background text-foreground">
-      <header className="flex h-12 items-center justify-between border-b bg-card px-4">
-        <div className="flex items-center gap-2">
-          <BrandLockup logoClassName="size-7" textClassName="text-sm" />
-          <span className="hidden text-[10px] text-muted-foreground sm:inline">
-            Design distributed systems · simulate production load · find
-            bottlenecks
-          </span>
-        </div>
+      <header className="flex h-14 items-center justify-between border-b bg-card px-4">
+        <BrandLockup
+          tagline="Design distributed systems · simulate production load · find bottlenecks"
+          taglineClassName="hidden sm:inline"
+        />
         <div className="flex items-center gap-2">
           <Button
             size="sm"
