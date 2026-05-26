@@ -1,4 +1,4 @@
-# System Architect Simulator
+# MSH Infra
 
 Design distributed systems on a canvas, then watch them succeed or fail under simulated production load. Drag in components (load balancers, caches, databases, queues, …), wire them together, pick a traffic pattern, and the simulator surfaces bottlenecks, SLO breaches, and monthly cost estimates in real time.
 
