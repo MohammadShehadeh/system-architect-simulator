@@ -44,6 +44,8 @@ export function useSimulation() {
   const setMetrics = useSimulationStore((s) => s.setMetrics);
   const setStatus = useSimulationStore((s) => s.setStatus);
 
+  // Worker lifecycle: creation, message listener, and the architecture-store
+  // subscription all share a single cleanup so nothing can outlive the worker.
   useEffect(() => {
     const worker = new Worker(
       new URL("./simulation.worker.ts", import.meta.url),
@@ -62,7 +64,19 @@ export function useSimulation() {
     };
     worker.addEventListener("message", onMessage);
 
+    const unsubscribe = useArchitectureStore.subscribe((state, prev) => {
+      if (!archChanged(prev.nodes, state.nodes, prev.edges, state.edges)) {
+        return;
+      }
+      worker.postMessage({
+        type: "UPDATE_ARCHITECTURE",
+        nodes: state.nodes,
+        edges: state.edges,
+      } satisfies MainToWorker);
+    });
+
     return () => {
+      unsubscribe();
       worker.removeEventListener("message", onMessage);
       worker.terminate();
       workerRef.current = null;
@@ -108,19 +122,4 @@ export function useSimulation() {
       worker.postMessage({ type: "STOP" } satisfies MainToWorker);
     }
   }, [status]);
-
-  useEffect(() => {
-    const worker = workerRef.current;
-    if (!worker) return;
-    return useArchitectureStore.subscribe((state, prev) => {
-      if (!archChanged(prev.nodes, state.nodes, prev.edges, state.edges)) {
-        return;
-      }
-      worker.postMessage({
-        type: "UPDATE_ARCHITECTURE",
-        nodes: state.nodes,
-        edges: state.edges,
-      } satisfies MainToWorker);
-    });
-  }, []);
 }
