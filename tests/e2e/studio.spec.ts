@@ -4,7 +4,7 @@ test.describe("System Architect Studio", () => {
   test("loads the studio and renders the starter template", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page).toHaveTitle(/System Architect Simulator/i);
+    await expect(page).toHaveTitle(/MSH Infra/i);
 
     const canvas = page.locator(".react-flow");
     await expect(canvas).toBeVisible();
