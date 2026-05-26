@@ -77,16 +77,53 @@ export function BrandLockup({
   logoClassName,
   textClassName,
   showText = true,
+  tagline,
+  taglineClassName,
 }: {
   className?: string;
   logoClassName?: string;
   textClassName?: string;
   showText?: boolean;
+  tagline?: string;
+  taglineClassName?: string;
 }) {
+  if (tagline) {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-2.5 text-foreground",
+          className,
+        )}
+      >
+        <LogoMark className={cn("size-9 shrink-0", logoClassName)} />
+        <span className="flex min-w-0 flex-col gap-0.5 leading-none">
+          {showText && (
+            <span
+              className={cn(
+                "text-sm font-semibold uppercase tracking-[0.08em]",
+                textClassName,
+              )}
+            >
+              Infra
+            </span>
+          )}
+          <span
+            className={cn(
+              "truncate text-[11px] text-muted-foreground",
+              taglineClassName,
+            )}
+          >
+            {tagline}
+          </span>
+        </span>
+      </span>
+    );
+  }
+
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 whitespace-nowrap text-foreground",
+        "inline-flex items-center gap-1.5 whitespace-nowrap text-foreground",
         className,
       )}
     >
