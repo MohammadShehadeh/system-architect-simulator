@@ -100,11 +100,11 @@ export function BrandLockup({
           {showText && (
             <span
               className={cn(
-                "text-sm font-semibold tracking-tight",
+                "text-sm font-semibold uppercase tracking-[0.08em]",
                 textClassName,
               )}
             >
-              MSH Infra
+              Infra
             </span>
           )}
           <span
