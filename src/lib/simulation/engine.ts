@@ -972,6 +972,7 @@ export class SimulationEngine {
   private latencyBuffer: number[] = [];
   /** Per-component cumulative request count, for averaged cost. */
   private componentRequestTotals: Map<string, number> = new Map();
+  private pausedElapsedMs = 0;
   private config: SimulationConfig = {
     trafficMultiplier: 1,
     pattern: "constant",
@@ -987,6 +988,26 @@ export class SimulationEngine {
     );
   }
 
+  /**
+   * Apply architecture/config edits mid-run without resetting accumulated
+   * per-component state. Existing nodes keep their state; new nodes get fresh
+   * state; removed nodes are dropped.
+   */
+  updateArchitecture(nodes: ArchNode[], edges: ArchEdge[]) {
+    this.nodes = nodes;
+    this.edges = edges;
+    const next = new Map<string, ComponentState>();
+    for (const n of nodes) {
+      const prev = this.states.get(n.id);
+      if (prev && prev.type === n.data.type) {
+        next.set(n.id, prev);
+      } else {
+        next.set(n.id, createState(n.data.type));
+      }
+    }
+    this.states = next;
+  }
+
   setConfig(cfg: Partial<SimulationConfig>) {
     this.config = { ...this.config, ...cfg };
   }
@@ -994,6 +1015,7 @@ export class SimulationEngine {
   reset() {
     this.tickCount = 0;
     this.startedAt = Date.now();
+    this.pausedElapsedMs = 0;
     this.history = [];
     this.totalRequests = 0;
     this.successfulRequests = 0;
@@ -1003,6 +1025,17 @@ export class SimulationEngine {
     this.states = new Map(
       this.nodes.map((n) => [n.id, createState(n.data.type)])
     );
+  }
+
+  pause() {
+    this.pausedElapsedMs = Date.now() - this.startedAt;
+  }
+
+  // Shift startedAt forward so elapsed time appears continuous across the
+  // pause window — otherwise time-based traffic patterns (ramp, daily) jump
+  // ahead by however long the user stayed paused.
+  resume() {
+    this.startedAt = Date.now() - this.pausedElapsedMs;
   }
 
   private trafficFactor(elapsed: number): number {
