@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { SimulationEngine } from "@/lib/simulation/engine";
+import { useEffect, useRef } from "react";
 import { useArchitectureStore } from "@/lib/store/architecture-store";
 import { useSimulationStore } from "@/lib/store/simulation-store";
-
-const TICK_INTERVAL_MS = 100;
+import type { MainToWorker, WorkerToMain } from "./messages";
 
 export function useSimulation() {
-  const [engine] = useState(() => new SimulationEngine());
-  const rafRef = useRef<number | null>(null);
-  const lastTickRef = useRef(0);
+  const workerRef = useRef<Worker | null>(null);
 
   const status = useSimulationStore((s) => s.status);
   const config = useSimulationStore((s) => s.config);
@@ -18,41 +14,55 @@ export function useSimulation() {
   const setStatus = useSimulationStore((s) => s.setStatus);
 
   useEffect(() => {
-    engine.setConfig(config);
-  }, [engine, config]);
+    const worker = new Worker(
+      new URL("./simulation.worker.ts", import.meta.url),
+      { type: "module" }
+    );
+    workerRef.current = worker;
 
-  useEffect(() => {
-    if (status !== "running") {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
+    const onMessage = (e: MessageEvent<WorkerToMain>) => {
+      const msg = e.data;
+      if (msg.type === "METRICS") {
+        setMetrics(msg.metrics);
+      } else if (msg.type === "COMPLETED") {
+        setMetrics(msg.metrics);
+        setStatus("completed");
       }
-      return;
-    }
-
-    const { nodes, edges } = useArchitectureStore.getState();
-    engine.setArchitecture(nodes, edges);
-    engine.reset();
-
-    const loop = (t: number) => {
-      if (t - lastTickRef.current >= TICK_INTERVAL_MS) {
-        lastTickRef.current = t;
-        const metrics = engine.tick();
-        setMetrics(metrics);
-        if (metrics.uptime >= config.durationMs) {
-          setStatus("completed");
-          return;
-        }
-      }
-      rafRef.current = requestAnimationFrame(loop);
     };
-    rafRef.current = requestAnimationFrame(loop);
+    worker.addEventListener("message", onMessage);
 
     return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
+      worker.removeEventListener("message", onMessage);
+      worker.terminate();
+      workerRef.current = null;
     };
-  }, [engine, status, config.durationMs, setMetrics, setStatus]);
+  }, [setMetrics, setStatus]);
+
+  useEffect(() => {
+    const worker = workerRef.current;
+    if (!worker) return;
+    const msg: MainToWorker = { type: "SET_CONFIG", config };
+    worker.postMessage(msg);
+  }, [config]);
+
+  useEffect(() => {
+    const worker = workerRef.current;
+    if (!worker) return;
+    if (status === "running") {
+      const { nodes, edges } = useArchitectureStore.getState();
+      const { config: currentConfig } = useSimulationStore.getState();
+      const initMsg: MainToWorker = {
+        type: "INIT",
+        nodes,
+        edges,
+        config: currentConfig,
+      };
+      const startMsg: MainToWorker = { type: "START" };
+      worker.postMessage(initMsg);
+      worker.postMessage(startMsg);
+    } else {
+      const stopMsg: MainToWorker = { type: "STOP" };
+      worker.postMessage(stopMsg);
+    }
+  }, [status]);
 }
