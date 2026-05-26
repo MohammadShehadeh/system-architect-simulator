@@ -57,10 +57,26 @@ function Stat({ label, value, hint, icon: Icon, tone = "default" }: StatProps) {
 
 export function MetricsPanel() {
   const metrics = useSimulationStore((s) => s.metrics);
+  const status = useSimulationStore((s) => s.status);
   const nodes = useArchitectureStore((s) => s.nodes);
   const setSelectedNode = useArchitectureStore((s) => s.setSelectedNode);
 
   if (!metrics) return null;
+
+  const isIdle = status === "idle" && metrics.totalRequests === 0;
+
+  if (isIdle) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+        <Activity className="size-10 text-muted-foreground/40" />
+        <p className="mt-3 text-sm font-medium">No simulation data</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Click <span className="font-mono font-semibold">Start</span> in the
+          toolbar to begin a simulation. Metrics will appear here in real time.
+        </p>
+      </div>
+    );
+  }
 
   const successTone =
     metrics.successRate >= 0.99

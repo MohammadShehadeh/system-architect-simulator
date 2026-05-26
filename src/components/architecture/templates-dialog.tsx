@@ -61,12 +61,12 @@ export function TemplatesDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-6xl w-[92vw] h-[85vh] p-0 gap-0 flex flex-col"
+        className="flex h-[88vh] w-[95vw] max-w-[1400px] flex-col"
         showClose
       >
-        <DialogHeader className="border-b p-5 pb-4">
+        <DialogHeader className="shrink-0 border-b p-5 pb-4 pr-12">
           <div className="flex items-start gap-3">
-            <div className="flex size-9 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/30">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/30">
               <Building2 className="size-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
@@ -79,69 +79,63 @@ export function TemplatesDialog({ open, onOpenChange }: Props) {
           </div>
         </DialogHeader>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[180px_1fr_360px]">
+        <div className="grid min-h-0 flex-1 grid-cols-[180px_minmax(0,1fr)_380px] overflow-hidden">
           {/* Categories */}
-          <aside className="border-r bg-muted/20">
-            <div className="p-2">
-              <button
-                onClick={() => {
-                  setCategory("all");
-                  setSelectedId(null);
-                }}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
-                  category === "all"
-                    ? "bg-accent font-medium"
-                    : "hover:bg-accent/50 text-muted-foreground"
-                )}
-              >
-                <Sparkles className="size-3.5" /> All ({TEMPLATES.length})
-              </button>
-              {TEMPLATE_CATEGORIES.map((cat) => {
-                const count = TEMPLATES.filter((t) => t.category === cat.id).length;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => {
-                      setCategory(cat.id);
-                      setSelectedId(null);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
-                      category === cat.id
-                        ? "bg-accent font-medium"
-                        : "hover:bg-accent/50 text-muted-foreground"
-                    )}
-                  >
-                    <span>{cat.label}</span>
-                    <span className="text-[10px] tabular-nums opacity-60">
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+          <aside className="flex min-h-0 flex-col border-r bg-muted/20">
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="p-2">
+                <CategoryButton
+                  active={category === "all"}
+                  onClick={() => {
+                    setCategory("all");
+                  }}
+                  icon={Sparkles}
+                  label="All"
+                  count={TEMPLATES.length}
+                />
+                {TEMPLATE_CATEGORIES.map((cat) => {
+                  const count = TEMPLATES.filter(
+                    (t) => t.category === cat.id
+                  ).length;
+                  if (count === 0) return null;
+                  return (
+                    <CategoryButton
+                      key={cat.id}
+                      active={category === cat.id}
+                      onClick={() => setCategory(cat.id)}
+                      label={cat.label}
+                      count={count}
+                    />
+                  );
+                })}
+              </div>
+            </ScrollArea>
           </aside>
 
           {/* Grid */}
-          <ScrollArea className="min-h-0">
-            <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
-              {filtered.map((t) => (
-                <TemplateCard
-                  key={t.id}
-                  template={t}
-                  selected={t.id === selectedId}
-                  onSelect={() => setSelectedId(t.id)}
-                  onApply={() => handleApply(t)}
-                />
-              ))}
-            </div>
-          </ScrollArea>
+          <div className="flex min-h-0 min-w-0 flex-col">
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
+                {filtered.map((t) => (
+                  <TemplateCard
+                    key={t.id}
+                    template={t}
+                    selected={t.id === selectedId}
+                    onSelect={() => setSelectedId(t.id)}
+                    onApply={() => handleApply(t)}
+                  />
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
 
           {/* Detail pane */}
-          <aside className="border-l bg-card">
+          <aside className="flex min-h-0 flex-col border-l bg-card">
             {selected ? (
-              <TemplateDetail template={selected} onApply={() => handleApply(selected)} />
+              <TemplateDetail
+                template={selected}
+                onApply={() => handleApply(selected)}
+              />
             ) : (
               <div className="flex h-full flex-col items-center justify-center p-6 text-center">
                 <Workflow className="size-10 text-muted-foreground/40" />
@@ -158,6 +152,38 @@ export function TemplatesDialog({ open, onOpenChange }: Props) {
   );
 }
 
+function CategoryButton({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon?: React.ElementType;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors",
+        active
+          ? "bg-accent font-medium text-foreground"
+          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+      )}
+    >
+      <span className="flex items-center gap-1.5">
+        {Icon && <Icon className="size-3.5" />}
+        {label}
+      </span>
+      <span className="text-[10px] tabular-nums opacity-60">{count}</span>
+    </button>
+  );
+}
+
 function TemplateCard({
   template,
   selected,
@@ -169,11 +195,9 @@ function TemplateCard({
   onSelect: () => void;
   onApply: () => void;
 }) {
-  // Get the unique component types in this template for the icon strip
-  const types = Array.from(new Set(template.nodes.map((n) => n.data.type))).slice(
-    0,
-    6
-  );
+  const types = Array.from(
+    new Set(template.nodes.map((n) => n.data.type))
+  ).slice(0, 6);
 
   return (
     <button
@@ -188,10 +212,10 @@ function TemplateCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold leading-tight">
+            <span className="truncate text-sm font-semibold leading-tight">
               {template.name}
             </span>
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-muted-foreground">
               {template.category}
             </span>
           </div>
@@ -201,7 +225,7 @@ function TemplateCard({
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         {types.map((t) => {
           const Icon = COMPONENT_ICONS[t];
           const colors = COMPONENT_COLORS[t];
@@ -209,13 +233,13 @@ function TemplateCard({
             <span
               key={t}
               className={cn(
-                "flex size-6 items-center justify-center rounded-md ring-1",
+                "flex size-5 items-center justify-center rounded ring-1",
                 colors.bg,
                 colors.ring
               )}
               title={t}
             >
-              <Icon className={cn("size-3", colors.icon)} />
+              <Icon className={cn("size-2.5", colors.icon)} />
             </span>
           );
         })}
@@ -226,7 +250,7 @@ function TemplateCard({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 pt-1 text-[10px] text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
           <Layers className="size-3" /> {template.nodes.length} components
         </span>
@@ -244,30 +268,22 @@ function TemplateDetail({
   onApply: () => void;
 }) {
   return (
-    <div className="flex h-full flex-col">
-      <div className="border-b p-4">
-        <div className="flex items-center gap-2">
-          <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wide">
-            {template.category}
-          </span>
-        </div>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b p-4">
+        <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wide">
+          {template.category}
+        </span>
         <h3 className="mt-2 text-base font-semibold">{template.name}</h3>
         <p className="mt-1 text-xs text-muted-foreground">{template.tagline}</p>
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-4 p-4">
-          <section>
-            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Overview
-            </h4>
+          <Section title="Overview">
             <p className="text-xs leading-relaxed">{template.description}</p>
-          </section>
+          </Section>
 
-          <section>
-            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Inspired by
-            </h4>
+          <Section title="Inspired by">
             <div className="flex flex-wrap gap-1.5">
               {template.inspiredBy.map((co) => (
                 <span
@@ -278,13 +294,10 @@ function TemplateDetail({
                 </span>
               ))}
             </div>
-          </section>
+          </Section>
 
-          <section>
-            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Key concepts
-            </h4>
-            <ul className="space-y-1 text-xs">
+          <Section title="Key concepts">
+            <ul className="space-y-1.5 text-xs">
               {template.keyConcepts.map((c, i) => (
                 <li key={i} className="flex gap-1.5">
                   <span className="text-muted-foreground">•</span>
@@ -292,15 +305,14 @@ function TemplateDetail({
                 </li>
               ))}
             </ul>
-          </section>
+          </Section>
 
-          <section>
-            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Recommended load
-            </h4>
-            <div className="rounded-md border bg-muted/30 p-2 text-xs">
+          <Section title="Recommended load">
+            <div className="rounded-md border bg-muted/30 p-2.5 text-xs">
               <div className="flex items-center gap-2 font-medium">
-                <span className="capitalize">{template.recommendedLoad.pattern.replace("-", " ")}</span>
+                <span className="capitalize">
+                  {template.recommendedLoad.pattern.replace("-", " ")}
+                </span>
                 <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
                   {template.recommendedLoad.multiplier}× load
                 </span>
@@ -309,13 +321,10 @@ function TemplateDetail({
                 {template.recommendedLoad.description}
               </p>
             </div>
-          </section>
+          </Section>
 
-          <section>
-            <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Scaling challenges
-            </h4>
-            <ul className="space-y-1 text-xs">
+          <Section title="Scaling challenges">
+            <ul className="space-y-1.5 text-xs">
               {template.scalingPoints.map((s, i) => (
                 <li key={i} className="flex gap-1.5">
                   <span className="text-muted-foreground">→</span>
@@ -323,15 +332,32 @@ function TemplateDetail({
                 </li>
               ))}
             </ul>
-          </section>
+          </Section>
         </div>
       </ScrollArea>
 
-      <div className="border-t p-3">
+      <div className="shrink-0 border-t p-3">
         <Button onClick={onApply} className="w-full" size="sm">
           Apply template
         </Button>
       </div>
     </div>
+  );
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h4>
+      {children}
+    </section>
   );
 }

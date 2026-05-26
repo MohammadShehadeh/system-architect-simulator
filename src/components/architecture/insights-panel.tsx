@@ -17,6 +17,7 @@ import { Card } from "@/components/ui/card";
 import { useArchitectureStore } from "@/lib/store/architecture-store";
 import { useSimulationStore } from "@/lib/store/simulation-store";
 import { analyze, type Insight, type SLO } from "@/lib/simulation/insights";
+import type { SimulationMetrics } from "@/lib/architecture/types";
 import { cn, formatLatency, formatNumber } from "@/lib/utils";
 
 const SEVERITY_STYLES: Record<
@@ -52,6 +53,12 @@ const CATEGORY_LABELS: Record<Insight["category"], string> = {
   "best-practice": "Best Practice",
 };
 
+const SEVERITY_ORDER: Record<Insight["severity"], number> = {
+  critical: 0,
+  warning: 1,
+  info: 2,
+};
+
 export function InsightsPanel() {
   const nodes = useArchitectureStore((s) => s.nodes);
   const edges = useArchitectureStore((s) => s.edges);
@@ -76,22 +83,27 @@ export function InsightsPanel() {
     );
   }
 
+  const hasRunData = metrics !== null && metrics.currentRps > 0;
+  const sortedInsights = [...analysis.insights].sort(
+    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
+  );
+
   return (
-    <div className="flex h-full flex-col overflow-y-auto p-3">
-      <div className="space-y-3">
-        {/* Header summary */}
-        {metrics && metrics.currentRps > 0 && (
-          <SummarySection metrics={metrics} bottleneckSat={analysis.bottleneck.saturation} />
+    <div className="flex h-full flex-col overflow-y-auto">
+      <div className="space-y-3 p-3">
+        {hasRunData && metrics && (
+          <CapacityCard
+            metrics={metrics}
+            bottleneckSat={analysis.bottleneck.saturation}
+          />
         )}
 
-        {/* SLOs */}
-        {analysis.slos.length > 0 && metrics && metrics.currentRps > 0 && (
-          <SloSection slos={analysis.slos} />
+        {hasRunData && metrics && analysis.slos.length > 0 && (
+          <SloCard slos={analysis.slos} />
         )}
 
-        {/* Bottleneck */}
         {analysis.bottleneck.nodeId && analysis.bottleneck.saturation > 0.5 && (
-          <BottleneckSection
+          <BottleneckCard
             saturation={analysis.bottleneck.saturation}
             component={analysis.bottleneck.component}
             onClick={() =>
@@ -101,115 +113,124 @@ export function InsightsPanel() {
           />
         )}
 
-        {/* Insights list */}
-        {analysis.insights.length > 0 ? (
-          <Card className="gap-2 py-3">
-            <div className="flex items-center justify-between px-3">
-              <div className="text-xs font-semibold">
-                Insights & Recommendations
-              </div>
-              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">
-                {analysis.insights.length}
-              </span>
-            </div>
-            <div className="space-y-2 px-2">
-              {analysis.insights.map((insight) => (
-                <InsightCard
-                  key={insight.id}
-                  insight={insight}
-                  onClick={
-                    insight.nodeId
-                      ? () => setSelectedNode(insight.nodeId!)
-                      : undefined
-                  }
-                />
-              ))}
-            </div>
-          </Card>
-        ) : (
-          <Card className="gap-2 py-3">
-            <div className="flex items-center gap-2 px-3 text-xs font-semibold">
-              <CheckCircle2 className="size-4 text-emerald-500" />
-              No issues detected
-            </div>
-            <p className="px-3 text-xs text-muted-foreground">
-              {metrics && metrics.currentRps > 0
-                ? "Architecture is healthy at current load."
-                : "Run the simulation to surface bottlenecks and cost analysis."}
-            </p>
-          </Card>
-        )}
+        <InsightsList
+          insights={sortedInsights}
+          hasRunData={hasRunData}
+          onSelect={setSelectedNode}
+        />
       </div>
     </div>
   );
 }
 
-function SummarySection({
+function CapacityCard({
   metrics,
   bottleneckSat,
 }: {
-  metrics: NonNullable<ReturnType<typeof useSimulationStore.getState>["metrics"]>;
+  metrics: SimulationMetrics;
   bottleneckSat: number;
 }) {
+  const headroom = bottleneckSat < 0.1 ? null : 0.95 / bottleneckSat;
+  const headroomLabel = headroom === null
+    ? "plenty"
+    : headroom >= 10
+      ? "10×+"
+      : `${headroom.toFixed(1)}×`;
+
+  const capacityColor =
+    bottleneckSat > 1.0
+      ? "text-red-500"
+      : bottleneckSat > 0.85
+        ? "text-amber-500"
+        : "text-emerald-500";
+
   return (
-    <div className="grid grid-cols-2 gap-2">
-      <Card className="gap-1 py-3">
-        <div className="px-3">
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-            <DollarSign className="size-3" /> Est. monthly
-          </div>
-          <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
-            ${formatNumber(metrics.estimatedMonthlyCost)}
-          </div>
-          <div className="text-[10px] text-muted-foreground">
-            infra + variable
-          </div>
+    <Card className="gap-3 py-3">
+      <div className="px-3">
+        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <Gauge className="size-3" /> Capacity & Cost
         </div>
-      </Card>
-      <Card className="gap-1 py-3">
-        <div className="px-3">
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-            <Gauge className="size-3" /> Capacity left
-          </div>
-          <div
-            className={cn(
-              "mt-0.5 font-mono text-lg font-semibold tabular-nums",
-              bottleneckSat > 0.85 && "text-amber-500",
-              bottleneckSat > 1.0 && "text-red-500"
-            )}
-          >
-            {bottleneckSat > 1 ? "0%" : `${((1 - bottleneckSat) * 100).toFixed(0)}%`}
-          </div>
-          <div className="text-[10px] text-muted-foreground">
-            until bottleneck
-          </div>
-        </div>
-      </Card>
-      <Card className="gap-1 py-3 col-span-2">
-        <div className="px-3">
-          <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-            <TrendingUp className="size-3" /> Sustainable max throughput
-          </div>
-          <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
-            {formatNumber(metrics.estimatedMaxRps)} RPS
-          </div>
-          <div className="text-[10px] text-muted-foreground">
-            projection based on most saturated component
-          </div>
-        </div>
-      </Card>
+      </div>
+      <div className="grid grid-cols-3 gap-2 px-3">
+        <Metric
+          label="Headroom"
+          value={headroomLabel}
+          hint="before bottleneck"
+          valueClass={capacityColor}
+        />
+        <Metric
+          label="Max RPS"
+          value={formatNumber(metrics.estimatedMaxRps)}
+          hint="sustainable"
+          icon={TrendingUp}
+        />
+        <Metric
+          label="Est. monthly"
+          value={`$${formatNumber(metrics.estimatedMonthlyCost)}`}
+          hint="avg load"
+          icon={DollarSign}
+        />
+      </div>
+    </Card>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  valueClass,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  icon?: React.ElementType;
+  valueClass?: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-muted-foreground">
+        {Icon && <Icon className="size-2.5" />}
+        <span className="truncate">{label}</span>
+      </div>
+      <div
+        className={cn(
+          "mt-0.5 font-mono text-base font-semibold tabular-nums leading-tight",
+          valueClass
+        )}
+      >
+        {value}
+      </div>
+      {hint && (
+        <div className="text-[9px] text-muted-foreground">{hint}</div>
+      )}
     </div>
   );
 }
 
-function SloSection({ slos }: { slos: SLO[] }) {
+function SloCard({ slos }: { slos: SLO[] }) {
+  const passed = slos.filter((s) => s.met).length;
+  const total = slos.length;
+  const allMet = passed === total;
   return (
     <Card className="gap-2 py-3">
-      <div className="flex items-center gap-2 px-3">
-        <Target className="size-3.5 text-muted-foreground" />
-        <div className="text-xs font-semibold">SLO Compliance</div>
+      <div className="flex items-center justify-between px-3">
+        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <Target className="size-3" /> SLO Compliance
+        </div>
+        <span
+          className={cn(
+            "rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+            allMet
+              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+              : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+          )}
+        >
+          {passed}/{total}
+        </span>
       </div>
-      <div className="space-y-1.5 px-3">
+      <div className="space-y-1 px-3">
         {slos.map((slo) => {
           const formatted =
             slo.unit === "%"
@@ -228,19 +249,19 @@ function SloSection({ slos }: { slos: SLO[] }) {
               key={slo.name}
               className="flex items-center justify-between gap-2 text-xs"
             >
-              <div className="flex items-center gap-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
                 {slo.met ? (
-                  <CheckCircle2 className="size-3.5 text-emerald-500" />
+                  <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
                 ) : (
-                  <AlertTriangle className="size-3.5 text-amber-500" />
+                  <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
                 )}
-                <span>{slo.name}</span>
+                <span className="truncate">{slo.name}</span>
               </div>
-              <div className="flex items-baseline gap-1.5 font-mono tabular-nums">
+              <div className="flex shrink-0 items-baseline gap-1.5 font-mono tabular-nums">
                 <span
                   className={cn(
-                    "text-sm",
-                    slo.met ? "text-emerald-500" : "text-amber-500"
+                    "text-xs",
+                    slo.met ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
                   )}
                 >
                   {formatted}
@@ -257,7 +278,7 @@ function SloSection({ slos }: { slos: SLO[] }) {
   );
 }
 
-function BottleneckSection({
+function BottleneckCard({
   saturation,
   component,
   onClick,
@@ -285,12 +306,23 @@ function BottleneckSection({
           )}
         />
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-semibold">
-            Bottleneck: {component}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold">
+              Bottleneck: {component}
+            </span>
+            <span
+              className={cn(
+                "shrink-0 font-mono text-xs tabular-nums font-semibold",
+                severe ? "text-red-500" : "text-amber-500"
+              )}
+            >
+              {(saturation * 100).toFixed(0)}%
+            </span>
           </div>
           <div className="mt-0.5 text-[10px] text-muted-foreground">
-            Saturation {(saturation * 100).toFixed(0)}%
-            {severe ? " — failing requests" : " — close to limit"}
+            {severe
+              ? "Overloaded — requests failing"
+              : "Approaching limit — scale this component"}
           </div>
           <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
@@ -304,6 +336,54 @@ function BottleneckSection({
         </div>
       </div>
     </button>
+  );
+}
+
+function InsightsList({
+  insights,
+  hasRunData,
+  onSelect,
+}: {
+  insights: Insight[];
+  hasRunData: boolean;
+  onSelect: (id: string | null) => void;
+}) {
+  if (insights.length === 0) {
+    return (
+      <Card className="gap-2 py-3">
+        <div className="flex items-center gap-2 px-3 text-xs font-semibold">
+          <CheckCircle2 className="size-4 text-emerald-500" />
+          No issues detected
+        </div>
+        <p className="px-3 text-xs text-muted-foreground">
+          {hasRunData
+            ? "Architecture is healthy at current load."
+            : "Run the simulation to surface bottlenecks and cost analysis."}
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="gap-2 py-3">
+      <div className="flex items-center justify-between px-3">
+        <div className="text-xs font-semibold">Recommendations</div>
+        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">
+          {insights.length}
+        </span>
+      </div>
+      <div className="space-y-2 px-2">
+        {insights.map((insight) => (
+          <InsightCard
+            key={insight.id}
+            insight={insight}
+            onClick={
+              insight.nodeId ? () => onSelect(insight.nodeId!) : undefined
+            }
+          />
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -322,28 +402,28 @@ function InsightCard({
       onClick={onClick}
       disabled={!onClick}
       className={cn(
-        "flex w-full flex-col gap-1 rounded-md border p-2 text-left transition-colors",
+        "flex w-full flex-col gap-1 rounded-md border p-2.5 text-left transition-colors",
         styles.bg,
         styles.border,
-        onClick && "hover:bg-accent/40 cursor-pointer"
+        onClick && "cursor-pointer hover:bg-accent/40"
       )}
     >
       <div className="flex items-start gap-2">
-        <Icon className={cn("size-3.5 shrink-0 mt-0.5", styles.iconClass)} />
+        <Icon className={cn("mt-0.5 size-3.5 shrink-0", styles.iconClass)} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-semibold leading-tight">
               {insight.title}
             </span>
-            <span className="rounded bg-muted px-1 py-0 text-[9px] uppercase tracking-wide text-muted-foreground">
+            <span className="shrink-0 rounded bg-muted px-1 py-0 text-[9px] uppercase tracking-wide text-muted-foreground">
               {CATEGORY_LABELS[insight.category]}
             </span>
           </div>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
             {insight.description}
           </p>
-          <div className="mt-1.5 rounded-md bg-background/50 px-2 py-1 text-[11px]">
-            <span className="font-medium">→ </span>
+          <div className="mt-1.5 rounded-md bg-background/60 px-2 py-1 text-[11px] leading-snug">
+            <span className="font-medium text-foreground">→ </span>
             {insight.recommendation}
           </div>
           {insight.impact && (

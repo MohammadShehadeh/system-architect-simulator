@@ -202,20 +202,19 @@ function simulateAuthService(
   state: ComponentState,
   rps: number
 ) {
-  // Cache hit = sub-ms, miss = full validation
-  const cacheRps = rps * config.tokenCacheHitRate;
-  const dbRps = rps * (1 - config.tokenCacheHitRate);
-
-  const sat = dbRps / Math.max(config.maxRps, 1);
+  // Total saturation is total RPS vs maxRps; the cache just reduces latency.
+  const sat = rps / Math.max(config.maxRps, 1);
   state.cpuUtilization = Math.min(1, sat);
 
   const cacheLatency = 0.5;
   const fullLatency = config.baseLatencyMs;
   const avg =
-    (cacheRps * cacheLatency + dbRps * fullLatency) / Math.max(rps, 1);
+    cacheLatency * config.tokenCacheHitRate +
+    fullLatency * (1 - config.tokenCacheHitRate);
 
   let errorRate = 0;
-  if (sat > 1.0) errorRate = 0.2;
+  if (sat > 1.2) errorRate = 0.3;
+  else if (sat > 1.0) errorRate = 0.1;
   else if (sat > 0.85) errorRate = 0.02;
 
   setStatusBySaturation(state, sat);
@@ -473,17 +472,19 @@ function simulateQueue(
   const sat = rps / Math.max(config.maxThroughputRps, 1);
   state.cpuUtilization = Math.min(1, sat);
 
-  // Queue depth grows when consumers can't keep up
-  state.queueDepth = Math.min(
-    config.bufferSize,
-    (state.queueDepth ?? 0) + Math.max(0, rps - config.maxThroughputRps) / 10
+  // Queue depth grows when producers exceed throughput, drains when consumers catch up.
+  const overage = rps - config.maxThroughputRps;
+  const prev = state.queueDepth ?? 0;
+  state.queueDepth = Math.max(
+    0,
+    Math.min(config.bufferSize, prev + overage * 0.1)
   );
 
   let latency = config.durable ? 3 : 1;
   let errorRate = 0;
 
-  if (state.queueDepth >= config.bufferSize) {
-    errorRate = 0.4; // buffer full → producer rejection
+  if (state.queueDepth >= config.bufferSize * 0.95) {
+    errorRate = 0.4;
   }
 
   if (sat > 1.2) {
@@ -969,7 +970,8 @@ export class SimulationEngine {
   private successfulRequests = 0;
   private failedRequests = 0;
   private latencyBuffer: number[] = [];
-  private totalCostUsd = 0;
+  /** Per-component cumulative request count, for averaged cost. */
+  private componentRequestTotals: Map<string, number> = new Map();
   private config: SimulationConfig = {
     trafficMultiplier: 1,
     pattern: "constant",
@@ -997,7 +999,7 @@ export class SimulationEngine {
     this.successfulRequests = 0;
     this.failedRequests = 0;
     this.latencyBuffer = [];
-    this.totalCostUsd = 0;
+    this.componentRequestTotals = new Map();
     this.states = new Map(
       this.nodes.map((n) => [n.id, createState(n.data.type)])
     );
@@ -1121,9 +1123,22 @@ export class SimulationEngine {
     });
     if (this.history.length > 240) this.history.shift();
 
-    // Cost calculation
+    // Track cumulative requests per component so cost projections use average
+    // load rather than the spiky instantaneous tick.
+    for (const [id, state] of this.states.entries()) {
+      this.componentRequestTotals.set(
+        id,
+        (this.componentRequestTotals.get(id) ?? 0) + state.currentRps
+      );
+    }
+
+    const elapsedSec = Math.max(0.5, (Date.now() - this.startedAt) / 1000);
+    const monthlyHours = 730;
+    const monthlySeconds = monthlyHours * 3600;
+
+    // Cost calculation — infra (always paid) + variable (based on AVG RPS)
     let hourlyTotal = 0;
-    let perRequestTotal = 0;
+    let monthlyVariableCost = 0;
     const perComponent: Record<string, ComponentMetrics> = {};
     for (const [id, state] of this.states.entries()) {
       const node = this.nodes.find((n) => n.id === id);
@@ -1133,8 +1148,16 @@ export class SimulationEngine {
       const hCost = hourlyCost(node.data.type, node.data.config);
       const perReqCost =
         costPerMillionRequests(node.data.type, node.data.config) / 1_000_000;
+
       hourlyTotal += hCost;
-      perRequestTotal += perReqCost * state.currentRps * 10;
+
+      // componentRequestTotals accumulates raw per-tick request counts —
+      // dividing by elapsed seconds gives true average RPS hitting this component.
+      const cumulativeRequests = this.componentRequestTotals.get(id) ?? 0;
+      const avgRpsForComponent = cumulativeRequests / elapsedSec;
+      const componentMonthlyVariable =
+        perReqCost * avgRpsForComponent * monthlySeconds;
+      monthlyVariableCost += componentMonthlyVariable;
 
       perComponent[id] = {
         rps: state.currentRps * 10,
@@ -1147,30 +1170,34 @@ export class SimulationEngine {
         cpuUtilization: state.cpuUtilization,
         memoryUtilization: state.memoryUtilization,
         status: state.status,
-        costPerHour: hCost + perReqCost * state.currentRps * 10 * 3600,
+        costPerHour: hCost + perReqCost * avgRpsForComponent * 3600,
         saturation: state.saturation,
         connectionPoolUse: state.connectionPoolUse,
         queueDepth: state.queueDepth,
       };
     }
 
-    // Approximate monthly cost: hourly infra cost + per-request cost at current load
-    const monthlyHours = 730;
     const monthlyInfraCost = hourlyTotal * monthlyHours;
-    const monthlyVariableCost = perRequestTotal * 3600 * monthlyHours;
     const estimatedMonthlyCost = monthlyInfraCost + monthlyVariableCost;
 
-    // Estimated max RPS — find the most saturated component, project to 1.0 saturation
+    // Estimated max system RPS: project from observed saturation.
+    // When saturation is very low across the board, the system has lots of
+    // headroom but we can't extrapolate precisely — cap at 20x current.
+    const currentSystemRps = requestsThisTick * 10;
     let estimatedMaxRps = Infinity;
-    for (const [id, state] of this.states.entries()) {
-      if (state.saturation <= 0.01) continue;
-      const node = this.nodes.find((n) => n.id === id);
-      if (node?.data.type === "client") continue;
-      const currentTickRps = state.currentRps * 10;
-      const componentMax = (currentTickRps / state.saturation) * 0.95;
-      if (componentMax < estimatedMaxRps) estimatedMaxRps = componentMax;
+    if (currentSystemRps > 0) {
+      for (const [id, state] of this.states.entries()) {
+        if (state.saturation < 0.1) continue;
+        const node = this.nodes.find((n) => n.id === id);
+        if (!node || node.data.type === "client") continue;
+        const projected = currentSystemRps * (0.95 / state.saturation);
+        if (projected < estimatedMaxRps) estimatedMaxRps = projected;
+      }
     }
-    if (!isFinite(estimatedMaxRps)) estimatedMaxRps = 0;
+    if (!isFinite(estimatedMaxRps) || estimatedMaxRps < 0) {
+      // No meaningful saturation observed — system has >10x headroom.
+      estimatedMaxRps = currentSystemRps * 20;
+    }
 
     return {
       totalRequests: this.totalRequests,

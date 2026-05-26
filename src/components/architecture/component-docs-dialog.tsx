@@ -1,6 +1,13 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, DollarSign, Timer, XCircle, Zap } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  DollarSign,
+  Timer,
+  XCircle,
+  Zap,
+} from "lucide-react";
 
 import {
   Dialog,
@@ -11,7 +18,11 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { COMPONENT_DOCS } from "@/lib/architecture/docs";
-import { COMPONENT_DESCRIPTIONS, COMPONENT_LABELS, type ComponentType } from "@/lib/architecture/types";
+import {
+  COMPONENT_DESCRIPTIONS,
+  COMPONENT_LABELS,
+  type ComponentType,
+} from "@/lib/architecture/types";
 import { cn } from "@/lib/utils";
 
 import { COMPONENT_COLORS, COMPONENT_ICONS } from "./component-icons";
@@ -22,7 +33,11 @@ interface Props {
   componentType: ComponentType;
 }
 
-export function ComponentDocsDialog({ open, onOpenChange, componentType }: Props) {
+export function ComponentDocsDialog({
+  open,
+  onOpenChange,
+  componentType,
+}: Props) {
   const doc = COMPONENT_DOCS[componentType];
   const Icon = COMPONENT_ICONS[componentType];
   const colors = COMPONENT_COLORS[componentType];
@@ -31,8 +46,8 @@ export function ComponentDocsDialog({ open, onOpenChange, componentType }: Props
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] p-0 gap-0">
-        <DialogHeader className="border-b p-5 pb-4">
+      <DialogContent className="flex h-[85vh] w-[92vw] max-w-2xl flex-col">
+        <DialogHeader className="shrink-0 border-b p-5 pb-4 pr-12">
           <div className="flex items-start gap-3">
             <div
               className={cn(
@@ -45,12 +60,14 @@ export function ComponentDocsDialog({ open, onOpenChange, componentType }: Props
             </div>
             <div className="min-w-0 flex-1">
               <DialogTitle>{doc.title}</DialogTitle>
-              <DialogDescription className="mt-1">{doc.oneLine}</DialogDescription>
+              <DialogDescription className="mt-1">
+                {doc.oneLine}
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[60vh]">
+        <ScrollArea className="min-h-0 flex-1">
           <div className="space-y-5 p-5">
             <section>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -59,7 +76,7 @@ export function ComponentDocsDialog({ open, onOpenChange, componentType }: Props
               <p className="text-sm leading-relaxed">{doc.whatItDoes}</p>
             </section>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <FactCard
                 icon={Timer}
                 label="Typical latency"
@@ -124,7 +141,9 @@ export function ComponentDocsDialog({ open, onOpenChange, componentType }: Props
                 {Object.entries(doc.configHelp).map(([key, value]) => (
                   <div key={key} className="rounded-md border bg-muted/30 p-2.5">
                     <div className="font-mono text-xs font-semibold">{key}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">{value}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {value}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -184,12 +203,13 @@ function Bulleted({
   );
 }
 
-/** Quick info badge for showing component type description inline */
 export function ComponentInfo({ type }: { type: ComponentType }) {
   return (
     <span className="text-xs">
       <span className="font-medium">{COMPONENT_LABELS[type]}:</span>{" "}
-      <span className="text-muted-foreground">{COMPONENT_DESCRIPTIONS[type]}</span>
+      <span className="text-muted-foreground">
+        {COMPONENT_DESCRIPTIONS[type]}
+      </span>
     </span>
   );
 }

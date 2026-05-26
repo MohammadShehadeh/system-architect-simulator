@@ -193,7 +193,7 @@ export const COMPONENT_DOCS: Record<ComponentType, ComponentDoc> = {
       coldStartMs: "Serverless/autoscale latency on a cold instance.",
       autoScale: "Auto-add instances under load. Smooths spikes but slower than warm pool.",
     },
-    costModel: "$30-200/month/instance (e.g. AWS t3.medium = $30, m5.xlarge = $140).",
+    costModel: "EC2 t3.medium ~$30/mo · m5.xlarge ~$140/mo · m5.4xlarge ~$560/mo (on-demand).",
     typicalLatency: "5-50ms per request depending on logic and downstream calls.",
     capacity: "100-2000 RPS per instance for typical CRUD; ~10 RPS for heavy compute.",
   },
@@ -264,7 +264,7 @@ export const COMPONENT_DOCS: Record<ComponentType, ComponentDoc> = {
       baseLatencyMs: "Token validation latency (signature check + lookup).",
       tokenCacheHitRate: "Fraction of validations hitting cache, not the DB.",
     },
-    costModel: "Auth0: ~$0.0023/MAU. Self-hosted: 2-3 small instances + Redis.",
+    costModel: "Auth0 B2C: ~$0.03/MAU at scale. Self-hosted: 2-3 small instances + Redis (~$200/month).",
     typicalLatency: "1-5ms with cache, 10-30ms without.",
     capacity: "5k-50k validations/sec with caching.",
   },
@@ -419,7 +419,7 @@ export const COMPONENT_DOCS: Record<ComponentType, ComponentDoc> = {
       connectionPooler: "PgBouncer multiplies effective connections 10-100x.",
       replicaLagMs: "How stale replica reads are. Sub-second is healthy.",
     },
-    costModel: "RDS db.t3.medium: ~$60/month. db.m5.4xlarge: ~$1100/month + storage.",
+    costModel: "RDS Postgres db.t3.medium ~$60/mo · db.m5.4xlarge ~$1,070/mo (+ storage + I/O).",
     typicalLatency: "1-10ms indexed reads; 5-50ms writes (with fsync).",
     capacity: "5k-50k QPS per primary. Reads scale ~linearly with replicas.",
   },
@@ -442,8 +442,8 @@ export const COMPONENT_DOCS: Record<ComponentType, ComponentDoc> = {
     ],
     realWorldExamples: [
       "Amazon DynamoDB powering Alexa, Prime Video, retail orders",
-      "Apple iCloud on Cassandra",
-      "Discord messages on Cassandra (billions/day)",
+      "Apple iCloud on Cassandra (multi-petabyte)",
+      "Discord migrated from Cassandra to ScyllaDB for messages (trillions of rows)",
     ],
     commonPitfalls: [
       "Hot partition keys throttle the whole table",
@@ -480,8 +480,8 @@ export const COMPONENT_DOCS: Record<ComponentType, ComponentDoc> = {
       "Strong consistency requirements",
     ],
     realWorldExamples: [
-      "GitHub code search",
       "Shopify product search",
+      "Wikipedia search (CirrusSearch on Elasticsearch)",
       "Datadog/Elastic Logs on Elasticsearch",
     ],
     commonPitfalls: [
