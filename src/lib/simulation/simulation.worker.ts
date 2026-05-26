@@ -36,6 +36,10 @@ self.addEventListener("message", (e: MessageEvent<MainToWorker>) => {
       }
       break;
     }
+    case "UPDATE_ARCHITECTURE": {
+      engine.updateArchitecture(msg.nodes, msg.edges);
+      break;
+    }
     case "START": {
       stopLoop();
       engine.reset();

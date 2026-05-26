@@ -9,6 +9,7 @@ export type MainToWorker =
       config: SimulationConfig;
     }
   | { type: "SET_CONFIG"; config: Partial<SimulationConfig> }
+  | { type: "UPDATE_ARCHITECTURE"; nodes: ArchNode[]; edges: ArchEdge[] }
   | { type: "START" }
   | { type: "STOP" };
 

@@ -65,4 +65,18 @@ export function useSimulation() {
       worker.postMessage(stopMsg);
     }
   }, [status]);
+
+  useEffect(() => {
+    const worker = workerRef.current;
+    if (!worker || status !== "running") return;
+    return useArchitectureStore.subscribe((state, prev) => {
+      if (state.nodes === prev.nodes && state.edges === prev.edges) return;
+      const msg: MainToWorker = {
+        type: "UPDATE_ARCHITECTURE",
+        nodes: state.nodes,
+        edges: state.edges,
+      };
+      worker.postMessage(msg);
+    });
+  }, [status]);
 }

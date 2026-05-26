@@ -987,6 +987,26 @@ export class SimulationEngine {
     );
   }
 
+  /**
+   * Apply architecture/config edits mid-run without resetting accumulated
+   * per-component state. Existing nodes keep their state; new nodes get fresh
+   * state; removed nodes are dropped.
+   */
+  updateArchitecture(nodes: ArchNode[], edges: ArchEdge[]) {
+    this.nodes = nodes;
+    this.edges = edges;
+    const next = new Map<string, ComponentState>();
+    for (const n of nodes) {
+      const prev = this.states.get(n.id);
+      if (prev && prev.type === n.data.type) {
+        next.set(n.id, prev);
+      } else {
+        next.set(n.id, createState(n.data.type));
+      }
+    }
+    this.states = next;
+  }
+
   setConfig(cfg: Partial<SimulationConfig>) {
     this.config = { ...this.config, ...cfg };
   }
