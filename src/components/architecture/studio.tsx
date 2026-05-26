@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LayoutTemplate, Workflow } from "lucide-react";
+import { LayoutTemplate } from "lucide-react";
 
+import { BrandLockup } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { useArchitectureStore } from "@/lib/store/architecture-store";
 import { useSimulation } from "@/lib/simulation/use-simulation";
@@ -34,17 +35,11 @@ export function Studio() {
     <div className="flex h-svh flex-col bg-background text-foreground">
       <header className="flex h-12 items-center justify-between border-b bg-card px-4">
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/30">
-            <Workflow className="size-4 text-primary" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold leading-none">
-              System Architect Simulator
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              Design enterprise systems · simulate production load · find bottlenecks
-            </span>
-          </div>
+          <BrandLockup logoClassName="size-7" textClassName="text-sm" />
+          <span className="hidden text-[10px] text-muted-foreground sm:inline">
+            Design distributed systems · simulate production load · find
+            bottlenecks
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <Button
