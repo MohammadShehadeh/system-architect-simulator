@@ -5,6 +5,7 @@ import {
   Background,
   BackgroundVariant,
   Controls,
+  MarkerType,
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
@@ -77,18 +78,26 @@ function CanvasInner() {
     return edges.map((e) => {
       const targetNode = nodes.find((n) => n.id === e.target);
       const sourceNode = nodes.find((n) => n.id === e.source);
+      // Tint each edge with its source component's colour so flows are
+      // traceable; dangling edges (missing endpoints) stay muted.
       const color =
-        sourceNode &&
-        COMPONENT_COLORS[sourceNode.data.type].icon.includes("blue")
-          ? "var(--primary)"
+        sourceNode && targetNode
+          ? COMPONENT_COLORS[sourceNode.data.type].dot
           : "var(--muted-foreground)";
       return {
         ...e,
         animated: simStatus === "running",
+        // Arrowhead makes the direction of data flow explicit.
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 16,
+          height: 16,
+          color,
+        },
         style: {
           stroke: color,
           strokeWidth: 1.8,
-          opacity: targetNode ? 0.85 : 0.4,
+          opacity: targetNode ? 0.9 : 0.4,
         },
       };
     });

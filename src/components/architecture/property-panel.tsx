@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpen, Copy, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -55,10 +55,35 @@ function NumberField({
   value,
   min,
   max,
-  step,
   onChange,
   suffix,
 }: NumberFieldProps) {
+  // Hold the raw text so partial input (e.g. "0.", "", "1.0") survives a
+  // render instead of being parsed-and-clobbered on every keystroke — that's
+  // what made decimal fields (read ratio, hit rate, …) impossible to edit.
+  const [text, setText] = useState(() => String(value));
+  const editing = useRef(false);
+
+  // Resync when the value changes from outside (selecting another node,
+  // undo/redo) but never overwrite what the user is actively typing.
+  useEffect(() => {
+    if (!editing.current) setText(String(value));
+  }, [value]);
+
+  const commit = () => {
+    editing.current = false;
+    const parsed = Number(text);
+    if (text.trim() === "" || Number.isNaN(parsed)) {
+      setText(String(value));
+      return;
+    }
+    let next = parsed;
+    if (min !== undefined) next = Math.max(min, next);
+    if (max !== undefined) next = Math.min(max, next);
+    if (next !== value) onChange(next);
+    setText(String(next));
+  };
+
   return (
     <div className="space-y-1.5">
       <Label className="text-muted-foreground">
@@ -66,15 +91,20 @@ function NumberField({
         {suffix && <span className="text-[10px] opacity-60">{suffix}</span>}
       </Label>
       <Input
-        type="number"
-        value={value}
-        min={min}
-        max={max}
-        step={step ?? 1}
-        onChange={(e) => {
-          const n = Number(e.target.value);
-          if (!Number.isNaN(n)) onChange(n);
+        type="text"
+        inputMode="decimal"
+        value={text}
+        onFocus={() => {
+          editing.current = true;
         }}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setText(raw);
+          if (raw.trim() === "") return;
+          const parsed = Number(raw);
+          if (!Number.isNaN(parsed)) onChange(parsed);
+        }}
+        onBlur={commit}
         className="h-8 text-sm"
       />
       {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
