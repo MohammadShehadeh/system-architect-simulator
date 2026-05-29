@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
+import { BookOpen } from "lucide-react";
 
 import {
   COMPONENT_DESCRIPTIONS,
@@ -13,6 +14,7 @@ import {
   COMPONENT_COLORS,
   COMPONENT_ICONS,
 } from "./component-icons";
+import { ComponentDocsDialog } from "./component-docs-dialog";
 
 const GROUPS: { label: string; items: ComponentType[] }[] = [
   {
@@ -41,11 +43,18 @@ const GROUPS: { label: string; items: ComponentType[] }[] = [
   },
 ];
 
-interface Props {
-  onPick?: (type: ComponentType) => void;
-}
+export function ComponentPalette() {
+  // The full reference docs for each component live in COMPONENT_DOCS. The
+  // palette is where a learner first meets a component, so a click here opens
+  // those docs — dragging still places the component on the canvas.
+  const [docType, setDocType] = useState<ComponentType | null>(null);
+  const [docOpen, setDocOpen] = useState(false);
 
-export function ComponentPalette({ onPick }: Props) {
+  const openDocs = useCallback((type: ComponentType) => {
+    setDocType(type);
+    setDocOpen(true);
+  }, []);
+
   const onDragStart = useCallback(
     (event: React.DragEvent, type: ComponentType) => {
       event.dataTransfer.setData("application/component-type", type);
@@ -71,8 +80,9 @@ export function ComponentPalette({ onPick }: Props) {
                   type="button"
                   draggable
                   onDragStart={(e) => onDragStart(e, type)}
-                  onClick={() => onPick?.(type)}
-                  title={COMPONENT_DESCRIPTIONS[type]}
+                  onClick={() => openDocs(type)}
+                  title={`${COMPONENT_LABELS[type]} — ${COMPONENT_DESCRIPTIONS[type]}\n\nDrag to add · click to learn more`}
+                  aria-label={`${COMPONENT_LABELS[type]}: drag to add to canvas, or click to read the full guide`}
                   className={cn(
                     "group flex items-center gap-2.5 rounded-md border border-transparent bg-card px-2 py-1.5 text-left transition-all",
                     "hover:border-border hover:bg-accent/40 active:scale-[0.98]",
@@ -97,12 +107,24 @@ export function ComponentPalette({ onPick }: Props) {
                       {COMPONENT_DESCRIPTIONS[type]}
                     </span>
                   </span>
+                  <BookOpen
+                    className="size-3.5 shrink-0 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground/70 group-focus-visible:text-muted-foreground/70"
+                    aria-hidden
+                  />
                 </button>
               );
             })}
           </div>
         </div>
       ))}
+
+      {docType && (
+        <ComponentDocsDialog
+          componentType={docType}
+          open={docOpen}
+          onOpenChange={setDocOpen}
+        />
+      )}
     </div>
   );
 }

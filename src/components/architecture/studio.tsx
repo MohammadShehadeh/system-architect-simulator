@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LayoutTemplate } from "lucide-react";
+import { GraduationCap, LayoutTemplate } from "lucide-react";
 
 import { BrandLockup } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { useSimulation } from "@/lib/simulation/use-simulation";
 
 import { ArchitectureCanvas } from "./architecture-canvas";
 import { ComponentPalette } from "./component-palette";
+import { GuideDialog } from "./guide-dialog";
 import { InsightsPanel } from "./insights-panel";
 import { MetricsPanel } from "./metrics-panel";
 import { PropertyPanel } from "./property-panel";
@@ -24,6 +25,7 @@ export function Studio() {
   const loadTemplateById = useArchitectureStore((s) => s.loadTemplateById);
   const nodeCount = useArchitectureStore((s) => s.nodes.length);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   useEffect(() => {
     if (nodeCount === 0) {
@@ -39,6 +41,14 @@ export function Studio() {
           taglineClassName="hidden sm:inline"
         />
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1.5"
+            onClick={() => setGuideOpen(true)}
+          >
+            <GraduationCap className="size-3.5" /> Guide
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -70,8 +80,8 @@ export function Studio() {
               value="components"
               className="min-h-0 flex-1 overflow-y-auto p-2"
             >
-              <div className="mb-1 px-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                Drag onto canvas
+              <div className="mb-2 px-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                Drag to canvas · click to learn
               </div>
               <ComponentPalette />
             </TabsContent>
@@ -126,6 +136,7 @@ export function Studio() {
       </div>
 
       <TemplatesDialog open={templatesOpen} onOpenChange={setTemplatesOpen} />
+      <GuideDialog open={guideOpen} onOpenChange={setGuideOpen} />
     </div>
   );
 }
