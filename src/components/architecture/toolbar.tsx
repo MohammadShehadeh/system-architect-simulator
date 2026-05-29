@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { InfoHint } from "@/components/ui/info-hint";
 import {
   useArchitectureStore,
   useTemporalStore,
@@ -31,6 +32,61 @@ import { useSimulationStore } from "@/lib/store/simulation-store";
 import { cn } from "@/lib/utils";
 
 import { TemplatesDialog } from "./templates-dialog";
+
+/**
+ * Traffic patterns shape how request volume changes over the course of a run.
+ * Descriptions mirror the engine's trafficFactor() so the help text stays
+ * truthful to what the simulation actually does.
+ */
+const PATTERN_OPTIONS: {
+  value:
+    | "constant"
+    | "ramp"
+    | "spike"
+    | "wave"
+    | "daily"
+    | "black-friday"
+    | "viral";
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "constant",
+    label: "Constant",
+    description: "Steady, unchanging load — the simplest baseline.",
+  },
+  {
+    value: "ramp",
+    label: "Ramp up",
+    description:
+      "Climbs gradually from light to ~2× load. Great for finding the breaking point.",
+  },
+  {
+    value: "spike",
+    label: "Spike",
+    description: "Runs flat, then jumps to 5× at the halfway mark.",
+  },
+  {
+    value: "wave",
+    label: "Wave",
+    description: "Rises and falls repeatedly (0.2×–1.8×) — a natural ebb and flow.",
+  },
+  {
+    value: "daily",
+    label: "Daily cycle",
+    description: "A compressed day: morning ramp, midday, evening peak, overnight lull.",
+  },
+  {
+    value: "black-friday",
+    label: "Black Friday",
+    description: "Calm, then a sudden jump to a sustained 5× rush — a planned sale.",
+  },
+  {
+    value: "viral",
+    label: "Viral growth",
+    description: "Accelerating, exponential growth plateauing near 8× — a post going viral.",
+  },
+];
 
 export function Toolbar() {
   const status = useSimulationStore((s) => s.status);
@@ -121,8 +177,21 @@ export function Toolbar() {
         <Separator orientation="vertical" className="mx-1 h-6" />
 
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase text-muted-foreground">
+          <span className="flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
             Pattern
+            <InfoHint side="bottom">
+              <p className="mb-1.5 font-medium text-primary-foreground">
+                How request volume changes over a run:
+              </p>
+              <ul className="space-y-1">
+                {PATTERN_OPTIONS.map((p) => (
+                  <li key={p.value}>
+                    <span className="font-medium">{p.label}:</span>{" "}
+                    {p.description}
+                  </li>
+                ))}
+              </ul>
+            </InfoHint>
           </span>
           <Select
             value={config.pattern}
@@ -134,17 +203,20 @@ export function Toolbar() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="constant">Constant</SelectItem>
-              <SelectItem value="ramp">Ramp up</SelectItem>
-              <SelectItem value="spike">Spike</SelectItem>
-              <SelectItem value="wave">Wave</SelectItem>
-              <SelectItem value="daily">Daily cycle</SelectItem>
-              <SelectItem value="black-friday">Black Friday</SelectItem>
-              <SelectItem value="viral">Viral growth</SelectItem>
+              {PATTERN_OPTIONS.map((p) => (
+                <SelectItem key={p.value} value={p.value}>
+                  {p.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <span className="text-[10px] uppercase text-muted-foreground">
+          <span className="flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
             Load
+            <InfoHint side="bottom">
+              Multiplies the whole pattern up or down. 1× uses each client&apos;s
+              configured RPS; 10× simulates ten times the traffic. Crank it up to
+              probe how much headroom your design really has.
+            </InfoHint>
           </span>
           <Select
             value={String(config.trafficMultiplier)}

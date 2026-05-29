@@ -3,7 +3,11 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 
-import type { ComponentNodeData } from "@/lib/architecture/types";
+import {
+  COMPONENT_DESCRIPTIONS,
+  COMPONENT_LABELS,
+  type ComponentNodeData,
+} from "@/lib/architecture/types";
 import { useSimulationStore } from "@/lib/store/simulation-store";
 import { cn, formatPercent } from "@/lib/utils";
 
@@ -38,6 +42,7 @@ function ComponentNodeRaw({ data, id, selected }: NodeProps<ComponentNodeType>) 
 
   return (
     <div
+      title={`${COMPONENT_LABELS[data.type]} — ${COMPONENT_DESCRIPTIONS[data.type]}`}
       className={cn(
         "group relative min-w-[180px] rounded-xl border bg-card text-card-foreground shadow-sm transition-all",
         "ring-1 ring-transparent",

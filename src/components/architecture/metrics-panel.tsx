@@ -3,6 +3,7 @@
 import { Activity, AlertTriangle, CheckCircle2, DollarSign, Gauge, Timer } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { InfoHint } from "@/components/ui/info-hint";
 import { useSimulationStore } from "@/lib/store/simulation-store";
 import { useArchitectureStore } from "@/lib/store/architecture-store";
 import { cn, formatLatency, formatNumber, formatPercent } from "@/lib/utils";
@@ -15,17 +16,19 @@ interface StatProps {
   label: string;
   value: string;
   hint?: string;
+  tip?: React.ReactNode;
   icon: React.ElementType;
   tone?: "default" | "success" | "warning" | "danger";
 }
 
-function Stat({ label, value, hint, icon: Icon, tone = "default" }: StatProps) {
+function Stat({ label, value, hint, tip, icon: Icon, tone = "default" }: StatProps) {
   return (
     <Card className="gap-1 py-3">
       <div className="flex items-start justify-between px-3">
         <div className="min-w-0 flex-1">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             {label}
+            {tip && <InfoHint>{tip}</InfoHint>}
           </div>
           <div
             className={cn(
@@ -99,23 +102,27 @@ export function MetricsPanel() {
           label="Throughput"
           value={`${formatNumber(metrics.currentRps)} RPS`}
           hint={`${formatNumber(metrics.totalRequests)} total`}
+          tip="Requests per second (RPS) the system is handling right now. 'Total' is the cumulative count since the run started."
           icon={Activity}
         />
         <Stat
           label="Success"
           value={formatPercent(metrics.successRate)}
           hint={`${formatNumber(metrics.failedRequests)} failed`}
+          tip="Share of requests that completed without error. Dropping below ~99% usually means a component is overloaded."
           icon={metrics.successRate >= 0.95 ? CheckCircle2 : AlertTriangle}
           tone={successTone}
         />
         <Stat
           label="P50 latency"
           value={formatLatency(metrics.p50LatencyMs)}
+          tip="The median response time — half of requests are faster than this, half are slower."
           icon={Timer}
         />
         <Stat
           label="P99 latency"
           value={formatLatency(metrics.p99LatencyMs)}
+          tip="99% of requests finish faster than this. It's the slow 'tail' your unluckiest users feel — watch it climb under load."
           icon={Timer}
           tone={latencyTone}
         />
@@ -123,12 +130,14 @@ export function MetricsPanel() {
           label="Est. cost"
           value={`$${formatNumber(metrics.estimatedMonthlyCost)}`}
           hint="per month"
+          tip="A rough monthly infrastructure bill for this design at the current load, summed across every component."
           icon={DollarSign}
         />
         <Stat
           label="Max RPS"
           value={formatNumber(metrics.estimatedMaxRps)}
           hint="sustainable"
+          tip="Estimated requests per second this design can sustain before its first component saturates and starts failing."
           icon={Gauge}
         />
       </div>
@@ -176,7 +185,15 @@ export function MetricsPanel() {
 
       {nodes.length > 0 && (
         <Card className="gap-2 py-3">
-          <div className="px-3 text-xs font-semibold">Component health</div>
+          <div className="flex items-center gap-1 px-3 text-xs font-semibold">
+            Component health
+            <InfoHint>
+              Each row shows a component&apos;s saturation — how close it is to
+              its capacity limit. The bar fills green → amber → red as it loads
+              up, and the dot flags its status. Click a row to inspect that
+              component.
+            </InfoHint>
+          </div>
           <div className="space-y-1 px-2">
             {nodes.map((node) => {
               const m = metrics.perComponent[node.id];

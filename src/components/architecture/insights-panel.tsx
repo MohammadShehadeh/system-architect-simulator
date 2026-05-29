@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { InfoHint } from "@/components/ui/info-hint";
 import { useArchitectureStore } from "@/lib/store/architecture-store";
 import { useSimulationStore } from "@/lib/store/simulation-store";
 import { analyze, type Insight, type SLO } from "@/lib/simulation/insights";
@@ -156,18 +157,21 @@ function CapacityCard({
           label="Headroom"
           value={headroomLabel}
           hint="before bottleneck"
+          tip="How much more traffic you can absorb before the busiest component saturates. '2.5×' means you could take 2.5 times the current load."
           valueClass={capacityColor}
         />
         <Metric
           label="Max RPS"
           value={formatNumber(metrics.estimatedMaxRps)}
           hint="sustainable"
+          tip="Estimated requests per second this design can sustain before its first component gives out."
           icon={TrendingUp}
         />
         <Metric
           label="Est. monthly"
           value={`$${formatNumber(metrics.estimatedMonthlyCost)}`}
           hint="avg load"
+          tip="Approximate monthly infrastructure cost for this design at the current average load."
           icon={DollarSign}
         />
       </div>
@@ -179,12 +183,14 @@ function Metric({
   label,
   value,
   hint,
+  tip,
   icon: Icon,
   valueClass,
 }: {
   label: string;
   value: string;
   hint?: string;
+  tip?: React.ReactNode;
   icon?: React.ElementType;
   valueClass?: string;
 }) {
@@ -193,6 +199,7 @@ function Metric({
       <div className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-muted-foreground">
         {Icon && <Icon className="size-2.5" />}
         <span className="truncate">{label}</span>
+        {tip && <InfoHint iconClassName="size-2.5">{tip}</InfoHint>}
       </div>
       <div
         className={cn(
@@ -218,6 +225,11 @@ function SloCard({ slos }: { slos: SLO[] }) {
       <div className="flex items-center justify-between px-3">
         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
           <Target className="size-3" /> SLO Compliance
+          <InfoHint>
+            Service Level Objectives — the reliability and latency targets you
+            promise users (e.g. 99% success, P99 under 200ms). Green means the
+            target is being met at the current load.
+          </InfoHint>
         </div>
         <span
           className={cn(
