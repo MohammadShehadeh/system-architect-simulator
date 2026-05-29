@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef } from "react";
+import { Boxes } from "lucide-react";
 import {
   Background,
   BackgroundVariant,
@@ -104,7 +105,22 @@ function CanvasInner() {
   }, [edges, nodes, simStatus]);
 
   return (
-    <div ref={wrapperRef} className="size-full">
+    <div ref={wrapperRef} className="relative size-full">
+      {nodes.length === 0 && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+          <div className="max-w-xs rounded-xl border border-dashed bg-card/70 p-6 text-center backdrop-blur-sm">
+            <Boxes className="mx-auto size-8 text-muted-foreground/50" />
+            <p className="mt-3 text-sm font-medium">Your canvas is empty</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Drag a component from the panel on the left to start building,
+              load a ready-made{" "}
+              <span className="font-medium text-foreground">Template</span>, or
+              open the <span className="font-medium text-foreground">Guide</span>{" "}
+              for a tour.
+            </p>
+          </div>
+        </div>
+      )}
       <ReactFlow<ArchNode, ArchEdge>
         nodes={nodes}
         edges={decoratedEdges}

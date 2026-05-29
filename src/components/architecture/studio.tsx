@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GraduationCap, LayoutTemplate } from "lucide-react";
 
 import { BrandLockup } from "@/components/brand/logo";
@@ -23,15 +23,21 @@ import { ThemeToggle } from "@/components/theme/theme-toggle";
 export function Studio() {
   useSimulation();
   const loadTemplateById = useArchitectureStore((s) => s.loadTemplateById);
-  const nodeCount = useArchitectureStore((s) => s.nodes.length);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const seededRef = useRef(false);
 
+  // Seed a starter design the first time the studio mounts so newcomers
+  // aren't dropped onto a blank canvas. This runs once per session — unlike
+  // before, clearing the canvas now genuinely leaves it empty rather than
+  // immediately reloading the starter template.
   useEffect(() => {
-    if (nodeCount === 0) {
+    if (seededRef.current) return;
+    seededRef.current = true;
+    if (useArchitectureStore.getState().nodes.length === 0) {
       loadTemplateById("starter-cached");
     }
-  }, [loadTemplateById, nodeCount]);
+  }, [loadTemplateById]);
 
   return (
     <div className="flex h-svh flex-col bg-background text-foreground">
